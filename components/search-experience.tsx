@@ -96,7 +96,7 @@ export function SearchExperience({ initialQuery = "", initialMode = "identify" }
             <button
               type="button"
               onClick={() => setMode("identify")}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium transition-colors ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 font-medium transition-colors ${
                 mode === "identify" ? "bg-surface text-ink shadow-warm" : "text-muted"
               }`}
             >
@@ -105,7 +105,7 @@ export function SearchExperience({ initialQuery = "", initialMode = "identify" }
             <button
               type="button"
               onClick={() => setMode("recommend")}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium transition-colors ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 font-medium transition-colors ${
                 mode === "recommend" ? "bg-surface text-ink shadow-warm" : "text-muted"
               }`}
             >
@@ -121,7 +121,7 @@ export function SearchExperience({ initialQuery = "", initialMode = "identify" }
               id="country"
               value={country}
               onChange={(e) => onCountryChange(e.target.value)}
-              className="rounded-input border border-hairline bg-surface px-3 py-2 text-sm text-ink outline-none"
+              className="cursor-pointer rounded-input border border-hairline bg-surface px-3 py-2 text-sm text-ink outline-none"
             >
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -132,7 +132,7 @@ export function SearchExperience({ initialQuery = "", initialMode = "identify" }
             <button
               type="submit"
               disabled={status === "loading" || !query.trim()}
-              className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="cursor-pointer rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "loading" ? "Finding..." : "Find it"}
             </button>

@@ -28,7 +28,8 @@ function apiKeys(): string[] {
 let rrIndex = 0;
 
 const SHAPE = `Each item: { "title": string, "year": number, "type": "movie" | "tv", "confidence": number, "reasoning": string }.
-"type" is "tv" for a television series and "movie" for a film. Max 6 items, best match first. confidence is 0 to 1. reasoning is one short sentence.`;
+"type" is "tv" for a television series and "movie" for a film. Max 6 items, best match first. confidence is 0 to 1.
+reasoning is one short sentence that describes the film/show itself (its plot or a scene). Do NOT begin with or include meta phrases like "From your description", "Based on", "Going by what you said", and do NOT refer to the user or "the description" — just describe the title.`;
 
 function systemPrompt(mode: IdentifyMode): string {
   if (mode === "recommend") {
@@ -57,6 +58,16 @@ const RESPONSE_SCHEMA = {
   },
 } as const;
 
+// Strip a leading meta-preface that refers to the user's description, e.g.
+// "From your description, ..." or "Based on the details you gave, ...". The
+// "your|the|what" guard keeps real titles ("From Dusk Till Dawn") intact.
+function cleanReasoning(raw: string): string {
+  let s = (raw ?? "").trim();
+  s = s.replace(/^(based on|from|going by|judging by|given)\s+(your|the|what)\b[^,.]*[,.]\s*/i, "");
+  if (s) s = s[0].toUpperCase() + s.slice(1);
+  return s;
+}
+
 // Strip stray markdown fences and parse the JSON array defensively.
 function parseCandidates(text: string): LlmCandidate[] {
   let cleaned = text.trim();
@@ -80,7 +91,7 @@ function parseCandidates(text: string): LlmCandidate[] {
         year: Number(c.year) || 0,
         mediaType: (c.type === "tv" ? "tv" : "movie") as MediaType,
         confidence: Math.max(0, Math.min(1, Number(c.confidence) || 0)),
-        reasoning: typeof c.reasoning === "string" ? c.reasoning : "",
+        reasoning: typeof c.reasoning === "string" ? cleanReasoning(c.reasoning) : "",
       }));
   } catch {
     return [];

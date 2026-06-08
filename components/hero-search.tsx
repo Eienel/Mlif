@@ -31,7 +31,7 @@ export function HeroSearch() {
         </div>
         <button
           type="submit"
-          className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          className="cursor-pointer rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
           Find it
         </button>
