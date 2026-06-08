@@ -28,7 +28,8 @@ function apiKeys(): string[] {
 let rrIndex = 0;
 
 const SHAPE = `Each item: { "title": string, "year": number, "type": "movie" | "tv", "confidence": number, "reasoning": string }.
-"type" is "tv" for a television series and "movie" for a film. Max 6 items, best match first. confidence is 0 to 1.
+"type" is "tv" for a television series and "movie" for a film. Max 6 items, best match first.
+confidence is 0 to 1 and must be HONEST: use 0.8+ only when the distinctive, concrete details clearly and specifically match a title; use 0.4 or lower when you are guessing or only the general mood matches.
 reasoning is one short sentence that describes the film/show itself (its plot or a scene). Do NOT begin with or include meta phrases like "From your description", "Based on", "Going by what you said", and do NOT refer to the user or "the description" — just describe the title.`;
 
 function systemPrompt(mode: IdentifyMode): string {
@@ -37,7 +38,10 @@ function systemPrompt(mode: IdentifyMode): string {
 Return ONLY a JSON array, no prose, no code fences.
 ${SHAPE}`;
   }
-  return `You identify films or TV series from vague descriptions. The user may be remembering a movie OR a television show, so consider both.
+  return `You identify a specific film or TV series from a user's vague, half-remembered description. It may be a movie OR a television show — consider both.
+The description is imprecise, but the CONCRETE details (specific objects, events, places — e.g. "a tree blocks the road", "trapped in a town") are the strongest clues. A good match must actually contain those details in its plot, not merely share a mood or a famous image.
+If a well-known title only matches the overall vibe but not the specific events, it is probably WRONG — prefer the title whose plot genuinely contains those details, even if it is obscure, and lower your confidence accordingly.
+Return SEVERAL ranked candidates so the user can choose; do not collapse to a single answer unless you are certain.
 Return ONLY a JSON array, no prose, no code fences.
 ${SHAPE}`;
 }
@@ -161,7 +165,7 @@ async function groundedPass(description: string, mode: IdentifyMode): Promise<Ll
         {
           text:
             systemPrompt(mode) +
-            `\nUse Google Search to confirm the title actually exists and to get the correct title, year, and whether it is a movie or TV series. Search the user's description. Then return the JSON array only.`,
+            `\nUse Google Search to look up the specific plot details the user gives (search those exact details, not just a genre), then verify each candidate's real title, year, and whether it is a movie or TV series. Cross-check that the title's plot actually contains the details before giving it high confidence. Then return the JSON array only.`,
         },
       ],
     },
