@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { runIdentify } from "@/lib/gemini";
-import { resolveByTitle, posterUrl, yearFrom } from "@/lib/tmdb";
+import { resolveByTitle } from "@/lib/tmdb";
 import { getWatchData } from "@/lib/watch";
 import { consumeForAnon } from "@/lib/usage";
 import type {
@@ -20,15 +20,16 @@ async function resolve(
 ): Promise<IdentifiedTitle[]> {
   const resolved = await Promise.all(
     candidates.map(async (c) => {
-      const movie = await resolveByTitle(c.title, c.year || undefined);
-      if (!movie) return null;
+      const found = await resolveByTitle(c.title, c.mediaType, c.year || undefined);
+      if (!found) return null;
       return {
-        tmdbId: movie.id,
-        title: movie.title,
-        year: yearFrom(movie.release_date),
-        overview: movie.overview ?? "",
-        posterPath: movie.poster_path ?? null,
-        backdropPath: movie.backdrop_path ?? null,
+        tmdbId: found.id,
+        mediaType: found.mediaType,
+        title: found.title,
+        year: found.year,
+        overview: found.overview,
+        posterPath: found.poster_path,
+        backdropPath: found.backdrop_path,
         confidence: c.confidence,
         reasoning: c.reasoning,
         watch: null as IdentifiedTitle["watch"],
@@ -36,12 +37,14 @@ async function resolve(
     }),
   );
 
-  // Drop unresolved and de-duplicate by tmdb id, keeping the highest confidence.
-  const byId = new Map<number, IdentifiedTitle>();
+  // Drop unresolved and de-duplicate by media type + tmdb id, keeping the
+  // highest confidence (a movie and a show can share an id).
+  const byId = new Map<string, IdentifiedTitle>();
   for (const r of resolved) {
     if (!r) continue;
-    const existing = byId.get(r.tmdbId);
-    if (!existing || r.confidence > existing.confidence) byId.set(r.tmdbId, r);
+    const key = `${r.mediaType}:${r.tmdbId}`;
+    const existing = byId.get(key);
+    if (!existing || r.confidence > existing.confidence) byId.set(key, r);
   }
   const unique = [...byId.values()].sort((a, b) => b.confidence - a.confidence);
 
@@ -49,7 +52,7 @@ async function resolve(
   const TOP_N = 4;
   await Promise.all(
     unique.slice(0, TOP_N).map(async (t) => {
-      t.watch = await getWatchData(t.tmdbId, country);
+      t.watch = await getWatchData(t.tmdbId, country, t.mediaType);
     }),
   );
 

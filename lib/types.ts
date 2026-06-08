@@ -2,10 +2,14 @@
 
 export type IdentifyMode = "identify" | "recommend";
 
+// Movies and TV series are both identifiable.
+export type MediaType = "movie" | "tv";
+
 // Raw candidate shape returned by the Gemini reasoning layer.
 export interface LlmCandidate {
   title: string;
   year: number;
+  mediaType: MediaType;
   confidence: number;
   reasoning: string;
 }
@@ -36,6 +40,7 @@ export interface WatchData {
 // and assembled watch options.
 export interface IdentifiedTitle {
   tmdbId: number;
+  mediaType: MediaType;
   title: string;
   year: number | null;
   overview: string;

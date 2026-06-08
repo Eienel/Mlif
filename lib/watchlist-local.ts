@@ -6,6 +6,7 @@
 
 export interface SavedTitle {
   tmdbId: number;
+  mediaType: "movie" | "tv";
   title: string;
   posterPath: string | null;
   savedAt: number;

@@ -52,7 +52,7 @@ export function WatchlistView() {
             className="flex items-center gap-4 rounded-card border border-hairline bg-surface p-4 shadow-warm"
           >
             <Link
-              href={`/title/${it.tmdbId}`}
+              href={`/title/${it.tmdbId}?type=${it.mediaType ?? "movie"}`}
               className="relative aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-input bg-surface-2"
             >
               {poster ? (
@@ -60,7 +60,7 @@ export function WatchlistView() {
               ) : null}
             </Link>
             <Link
-              href={`/title/${it.tmdbId}`}
+              href={`/title/${it.tmdbId}?type=${it.mediaType ?? "movie"}`}
               className="min-w-0 flex-1 font-display text-lg font-semibold text-ink hover:text-accent"
             >
               {it.title}

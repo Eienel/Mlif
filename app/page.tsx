@@ -7,6 +7,7 @@ import { HeroSearch } from "@/components/hero-search";
 import { ExampleQueries } from "@/components/example-queries";
 import { PosterMosaic } from "@/components/poster-mosaic";
 import { Reveal } from "@/components/reveal";
+import { WordSwap } from "@/components/word-swap";
 
 export default function LandingPage() {
   return (
@@ -21,7 +22,7 @@ export default function LandingPage() {
             Describe it. Find it. Watch it.
           </p>
           <h1 className="mt-5 font-display text-5xl font-semibold leading-[1.04] tracking-tight text-ink sm:text-6xl">
-            The movie you
+            The <WordSwap /> you
             <br />
             half remember.
           </h1>

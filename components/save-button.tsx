@@ -8,10 +8,11 @@ interface SaveButtonProps {
   tmdbId: number;
   title: string;
   posterPath: string | null;
+  mediaType?: "movie" | "tv";
 }
 
 // Saving is instant and local to the browser. No account, no network.
-export function SaveButton({ tmdbId, title, posterPath }: SaveButtonProps) {
+export function SaveButton({ tmdbId, title, posterPath, mediaType = "movie" }: SaveButtonProps) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export function SaveButton({ tmdbId, title, posterPath }: SaveButtonProps) {
   }, [tmdbId]);
 
   function toggle() {
-    setSaved(toggleSaved({ tmdbId, title, posterPath }));
+    setSaved(toggleSaved({ tmdbId, mediaType, title, posterPath }));
   }
 
   return (

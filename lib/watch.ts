@@ -9,7 +9,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWatchProviders, logoUrl, type TmdbProviderEntry } from "@/lib/tmdb";
 import { getWatchmodeSources } from "@/lib/watchmode";
-import type { WatchData, WatchOption } from "@/lib/types";
+import type { MediaType, WatchData, WatchOption } from "@/lib/types";
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
@@ -24,11 +24,11 @@ function norm(name: string): string {
 
 type Cat = "flatrate" | "free" | "rent" | "buy";
 
-async function buildWatchData(tmdbId: number, country: string): Promise<WatchData> {
+async function buildWatchData(tmdbId: number, country: string, mediaType: MediaType): Promise<WatchData> {
   const cc = country.toUpperCase();
   const [tmdb, sources] = await Promise.all([
-    getWatchProviders(tmdbId, cc),
-    getWatchmodeSources(tmdbId, [cc]),
+    getWatchProviders(tmdbId, cc, mediaType),
+    getWatchmodeSources(tmdbId, [cc], mediaType),
   ]);
 
   const tmdbWatchPage = tmdb?.link ?? null;
@@ -111,8 +111,15 @@ async function buildWatchData(tmdbId: number, country: string): Promise<WatchDat
   };
 }
 
-export async function getWatchData(tmdbId: number, country: string): Promise<WatchData> {
+export async function getWatchData(
+  tmdbId: number,
+  country: string,
+  mediaType: MediaType = "movie",
+): Promise<WatchData> {
   const cc = country.toUpperCase();
+  // Movie and TV ids share the integer space, so fold the media type into the
+  // cache key (the country column) to keep them distinct without a schema change.
+  const cacheKey = mediaType === "tv" ? `${cc}:tv` : cc;
 
   // Cache is best-effort. If Supabase is not configured, fall through to live.
   try {
@@ -121,7 +128,7 @@ export async function getWatchData(tmdbId: number, country: string): Promise<Wat
       .from("provider_cache")
       .select("payload, fetched_at")
       .eq("tmdb_id", tmdbId)
-      .eq("country", cc)
+      .eq("country", cacheKey)
       .maybeSingle();
 
     if (cached) {
@@ -131,12 +138,12 @@ export async function getWatchData(tmdbId: number, country: string): Promise<Wat
       }
     }
 
-    const fresh = await buildWatchData(tmdbId, cc);
+    const fresh = await buildWatchData(tmdbId, cc, mediaType);
     await admin
       .from("provider_cache")
-      .upsert({ tmdb_id: tmdbId, country: cc, payload: fresh, fetched_at: new Date().toISOString() });
+      .upsert({ tmdb_id: tmdbId, country: cacheKey, payload: fresh, fetched_at: new Date().toISOString() });
     return fresh;
   } catch {
-    return buildWatchData(tmdbId, cc);
+    return buildWatchData(tmdbId, cc, mediaType);
   }
 }

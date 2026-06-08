@@ -1,5 +1,7 @@
 // TMDB client. Server only. Catalog, search, posters, overviews, and the
-// JustWatch-powered /watch/providers endpoint.
+// JustWatch-powered /watch/providers endpoint. Supports both movies and TV.
+
+import type { MediaType } from "@/lib/types";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 export const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
@@ -57,26 +59,121 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Pr
   }
 }
 
-// Resolve a candidate (title + year) to a real TMDB movie.
-export async function resolveByTitle(title: string, year?: number): Promise<TmdbMovie | null> {
+// Raw TV result shape. TV uses `name` and `first_air_date` instead of the
+// movie fields, so we normalize both into ResolvedTitle below.
+interface TmdbTv {
+  id: number;
+  name: string;
+  first_air_date?: string;
+  overview?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  vote_average?: number;
+}
+
+// A normalized title (movie or TV) used across the identify pipeline.
+export interface ResolvedTitle {
+  id: number;
+  mediaType: MediaType;
+  title: string;
+  year: number | null;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+}
+
+function normalizeMovie(m: TmdbMovie): ResolvedTitle {
+  return {
+    id: m.id,
+    mediaType: "movie",
+    title: m.title,
+    year: yearFrom(m.release_date),
+    overview: m.overview ?? "",
+    poster_path: m.poster_path ?? null,
+    backdrop_path: m.backdrop_path ?? null,
+  };
+}
+
+function normalizeTv(t: TmdbTv): ResolvedTitle {
+  return {
+    id: t.id,
+    mediaType: "tv",
+    title: t.name,
+    year: yearFrom(t.first_air_date),
+    overview: t.overview ?? "",
+    poster_path: t.poster_path ?? null,
+    backdrop_path: t.backdrop_path ?? null,
+  };
+}
+
+// Resolve a candidate (title + year + media type) to a real TMDB entry.
+export async function resolveByTitle(
+  title: string,
+  mediaType: MediaType,
+  year?: number,
+): Promise<ResolvedTitle | null> {
+  if (mediaType === "tv") {
+    const params: Record<string, string> = { query: title, include_adult: "false" };
+    if (year) params.first_air_date_year = String(year);
+    const data = await tmdbGet<{ results: TmdbTv[] }>("/search/tv", params);
+    if (!data?.results?.length) return year ? resolveByTitle(title, "tv") : null;
+    return normalizeTv(data.results[0]);
+  }
   const params: Record<string, string> = { query: title, include_adult: "false" };
   if (year) params.year = String(year);
   const data = await tmdbGet<{ results: TmdbMovie[] }>("/search/movie", params);
-  if (!data?.results?.length) {
-    // Retry without the year constraint in case the remembered year was off.
-    if (year) return resolveByTitle(title);
-    return null;
+  if (!data?.results?.length) return year ? resolveByTitle(title, "movie") : null;
+  return normalizeMovie(data.results[0]);
+}
+
+// A normalized detail object for the title page (movie or TV).
+export interface MediaDetail {
+  id: number;
+  mediaType: MediaType;
+  title: string;
+  year: number | null;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  runtime: number | null;
+  seasons: number | null;
+  genres: { id: number; name: string }[];
+  voteAverage: number | null;
+  cast: { id: number; name: string; character?: string; profile_path?: string | null }[];
+}
+
+export async function getMediaDetail(tmdbId: number, mediaType: MediaType): Promise<MediaDetail | null> {
+  const path = mediaType === "tv" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
+  const data = await tmdbGet<Record<string, unknown>>(path, { append_to_response: "credits" });
+  if (!data) return null;
+  const credits = data.credits as TmdbMovieDetail["credits"] | undefined;
+  return {
+    id: tmdbId,
+    mediaType,
+    title: (mediaType === "tv" ? (data.name as string) : (data.title as string)) ?? "",
+    year: yearFrom(mediaType === "tv" ? (data.first_air_date as string) : (data.release_date as string)),
+    overview: (data.overview as string) ?? "",
+    poster_path: (data.poster_path as string) ?? null,
+    backdrop_path: (data.backdrop_path as string) ?? null,
+    runtime:
+      mediaType === "tv"
+        ? ((data.episode_run_time as number[] | undefined)?.[0] ?? null)
+        : ((data.runtime as number) ?? null),
+    seasons: mediaType === "tv" ? ((data.number_of_seasons as number) ?? null) : null,
+    genres: (data.genres as { id: number; name: string }[]) ?? [],
+    voteAverage: (data.vote_average as number) ?? null,
+    cast: credits?.cast?.slice(0, 8) ?? [],
+  };
+}
+
+export async function getSimilar(tmdbId: number, mediaType: MediaType): Promise<ResolvedTitle[]> {
+  const path = mediaType === "tv" ? `/tv/${tmdbId}/recommendations` : `/movie/${tmdbId}/recommendations`;
+  if (mediaType === "tv") {
+    const data = await tmdbGet<{ results: TmdbTv[] }>(path);
+    return (data?.results ?? []).filter((t) => t.poster_path).map(normalizeTv);
   }
-  return data.results[0];
-}
-
-export async function getMovieDetail(tmdbId: number): Promise<TmdbMovieDetail | null> {
-  return tmdbGet<TmdbMovieDetail>(`/movie/${tmdbId}`, { append_to_response: "credits" });
-}
-
-export async function getSimilar(tmdbId: number): Promise<TmdbMovie[]> {
-  const data = await tmdbGet<{ results: TmdbMovie[] }>(`/movie/${tmdbId}/recommendations`);
-  return data?.results ?? [];
+  const data = await tmdbGet<{ results: TmdbMovie[] }>(path);
+  return (data?.results ?? []).filter((m) => m.poster_path).map(normalizeMovie);
 }
 
 // Popular posters for the hero mosaic. Returns an empty list if unconfigured,
@@ -125,10 +222,10 @@ export interface TmdbWatchCountry {
 export async function getWatchProviders(
   tmdbId: number,
   country: string,
+  mediaType: MediaType,
 ): Promise<TmdbWatchCountry | null> {
-  const data = await tmdbGet<{ results: Record<string, TmdbWatchCountry> }>(
-    `/movie/${tmdbId}/watch/providers`,
-  );
+  const path = mediaType === "tv" ? `/tv/${tmdbId}/watch/providers` : `/movie/${tmdbId}/watch/providers`;
+  const data = await tmdbGet<{ results: Record<string, TmdbWatchCountry> }>(path);
   if (!data?.results) return null;
   return data.results[country.toUpperCase()] ?? null;
 }

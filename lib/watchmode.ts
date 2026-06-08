@@ -21,6 +21,7 @@ export interface WatchmodeSource {
 export async function getWatchmodeSources(
   tmdbId: number,
   countries: string[],
+  mediaType: "movie" | "tv" = "movie",
 ): Promise<WatchmodeSource[]> {
   const key = process.env.WATCHMODE_API_KEY;
   if (!key) return [];
@@ -28,7 +29,7 @@ export async function getWatchmodeSources(
   try {
     const searchUrl = new URL(`${WATCHMODE_BASE}/search/`);
     searchUrl.searchParams.set("apiKey", key);
-    searchUrl.searchParams.set("search_field", "tmdb_movie_id");
+    searchUrl.searchParams.set("search_field", mediaType === "tv" ? "tmdb_tv_id" : "tmdb_movie_id");
     searchUrl.searchParams.set("search_value", String(tmdbId));
 
     const searchRes = await fetch(searchUrl.toString(), {

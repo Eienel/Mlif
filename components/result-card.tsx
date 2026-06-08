@@ -10,12 +10,14 @@ import { SaveButton } from "@/components/save-button";
 // and the where-to-watch rows.
 export function ResultCard({ result }: { result: IdentifiedTitle }) {
   const poster = posterUrl(result.posterPath, "w342");
+  const href = `/title/${result.tmdbId}?type=${result.mediaType}`;
+  const isSeries = result.mediaType === "tv";
 
   return (
     <article className="overflow-hidden rounded-card border border-hairline bg-surface shadow-warm">
       <div className="flex gap-4 p-4 sm:gap-5 sm:p-5">
         <Link
-          href={`/title/${result.tmdbId}`}
+          href={href}
           className="relative aspect-[2/3] w-20 shrink-0 self-start overflow-hidden rounded-input bg-surface-2 sm:w-24"
         >
           {poster ? (
@@ -31,10 +33,15 @@ export function ResultCard({ result }: { result: IdentifiedTitle }) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="font-display text-xl font-semibold leading-tight text-ink">
-                <Link href={`/title/${result.tmdbId}`} className="hover:text-accent">
+                <Link href={href} className="hover:text-accent">
                   {result.title}
                 </Link>
                 {result.year ? <span className="ml-2 font-normal text-muted">{result.year}</span> : null}
+                {isSeries ? (
+                  <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 align-middle text-xs font-medium text-muted">
+                    Series
+                  </span>
+                ) : null}
               </h3>
               {result.reasoning ? (
                 <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted">
@@ -51,7 +58,7 @@ export function ResultCard({ result }: { result: IdentifiedTitle }) {
 
           <div className="mt-5 flex items-center gap-3">
             <Link
-              href={`/title/${result.tmdbId}`}
+              href={href}
               className="text-sm font-medium text-accent underline-offset-2 hover:underline"
             >
               View details
@@ -60,6 +67,7 @@ export function ResultCard({ result }: { result: IdentifiedTitle }) {
               tmdbId={result.tmdbId}
               title={result.title}
               posterPath={result.posterPath}
+              mediaType={result.mediaType}
             />
           </div>
         </div>

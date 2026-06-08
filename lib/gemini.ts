@@ -1,34 +1,36 @@
-// The reasoning layer. Server only. Gemini identifies films from vague
-// descriptions and returns strict JSON. Google Search grounding is a
-// confidence-gated fallback, never the default path.
+// The reasoning layer. Server only. Gemini identifies films and TV series from
+// vague descriptions and returns strict JSON.
 //
-// We call the REST API directly with fetch, so there is no extra SDK.
+// Identify mode always grounds with Google Search (free on Gemini) so confidently
+// wrong guesses get corrected against the real web. Recommend mode uses fast
+// structured output. We call the REST API directly with fetch, no SDK.
 
-import type { IdentifyMode, LlmCandidate } from "@/lib/types";
+import type { IdentifyMode, LlmCandidate, MediaType } from "@/lib/types";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// The free model. Fast, on the free tier, and plenty good for film identification.
+// The free model. Fast, on the free tier, and plenty good for identification.
 export const MODEL = "gemini-2.5-flash-lite";
 
 function apiKey(): string {
   return process.env.GEMINI_API_KEY ?? "";
 }
 
+const SHAPE = `Each item: { "title": string, "year": number, "type": "movie" | "tv", "confidence": number, "reasoning": string }.
+"type" is "tv" for a television series and "movie" for a film. Max 6 items, best match first. confidence is 0 to 1. reasoning is one short sentence.`;
+
 function systemPrompt(mode: IdentifyMode): string {
   if (mode === "recommend") {
-    return `You recommend films similar to what the user describes.
+    return `You recommend films or TV series similar to what the user describes.
 Return ONLY a JSON array, no prose, no code fences.
-Each item: { "title": string, "year": number, "confidence": number, "reasoning": string }.
-Max 6 items, best match first. confidence is 0 to 1. reasoning is one short sentence on why this pick fits the request.`;
+${SHAPE}`;
   }
-  return `You identify films from vague descriptions.
+  return `You identify films or TV series from vague descriptions. The user may be remembering a movie OR a television show, so consider both.
 Return ONLY a JSON array, no prose, no code fences.
-Each item: { "title": string, "year": number, "confidence": number, "reasoning": string }.
-Max 6 items, best match first. confidence is 0 to 1. reasoning is one short sentence on why it fits.`;
+${SHAPE}`;
 }
 
-// Response schema for the first pass, so Gemini returns clean structured JSON.
+// Response schema for the structured (non-grounded) path.
 const RESPONSE_SCHEMA = {
   type: "ARRAY",
   items: {
@@ -36,10 +38,11 @@ const RESPONSE_SCHEMA = {
     properties: {
       title: { type: "STRING" },
       year: { type: "INTEGER" },
+      type: { type: "STRING", enum: ["movie", "tv"] },
       confidence: { type: "NUMBER" },
       reasoning: { type: "STRING" },
     },
-    required: ["title", "year", "confidence", "reasoning"],
+    required: ["title", "year", "type", "confidence", "reasoning"],
   },
 } as const;
 
@@ -64,6 +67,7 @@ function parseCandidates(text: string): LlmCandidate[] {
       .map((c) => ({
         title: String(c.title),
         year: Number(c.year) || 0,
+        mediaType: (c.type === "tv" ? "tv" : "movie") as MediaType,
         confidence: Math.max(0, Math.min(1, Number(c.confidence) || 0)),
         reasoning: typeof c.reasoning === "string" ? c.reasoning : "",
       }));
@@ -97,13 +101,10 @@ export interface IdentifyEngineResult {
   grounded: boolean;
 }
 
-// First pass: pure model reasoning with structured JSON, no extra calls.
-async function firstPass(
-  description: string,
-  mode: IdentifyMode,
-  model: string,
-): Promise<LlmCandidate[]> {
-  const text = await callGemini(model, {
+// Structured pass: fast, no web search. Used for recommendations and as a
+// fallback if grounding fails.
+async function structuredPass(description: string, mode: IdentifyMode): Promise<LlmCandidate[]> {
+  const text = await callGemini(MODEL, {
     system_instruction: { parts: [{ text: systemPrompt(mode) }] },
     contents: [{ role: "user", parts: [{ text: description }] }],
     generationConfig: {
@@ -116,52 +117,42 @@ async function firstPass(
   return parseCandidates(text);
 }
 
-// Fallback pass: ground with Google Search, then re-rank. Confirms the film
-// exists and gets the correct title and year. Never sources watch links.
-// Structured output is not allowed alongside tools, so we parse text defensively.
-async function groundedPass(
-  description: string,
-  mode: IdentifyMode,
-  model: string,
-): Promise<LlmCandidate[]> {
-  const text = await callGemini(model, {
+// Grounded pass: searches the web to confirm the title exists and fix the year,
+// which catches confidently-wrong guesses. Structured output is not allowed
+// alongside tools, so we parse text defensively.
+async function groundedPass(description: string, mode: IdentifyMode): Promise<LlmCandidate[]> {
+  const text = await callGemini(MODEL, {
     system_instruction: {
       parts: [
         {
           text:
             systemPrompt(mode) +
-            `\nUse Google Search to confirm the film exists, searching the user description plus the word "movie". Then return the JSON array only.`,
+            `\nUse Google Search to confirm the title actually exists and to get the correct title, year, and whether it is a movie or TV series. Search the user's description. Then return the JSON array only.`,
         },
       ],
     },
     contents: [{ role: "user", parts: [{ text: description }] }],
     tools: [{ google_search: {} }],
-    generationConfig: { maxOutputTokens: 1536, temperature: 0.4 },
+    generationConfig: { maxOutputTokens: 2048, temperature: 0.3 },
   });
   return parseCandidates(text);
 }
-
-const CONFIDENCE_FLOOR = 0.6;
 
 export async function runIdentify(
   description: string,
   mode: IdentifyMode,
 ): Promise<IdentifyEngineResult> {
-  const model = MODEL;
-  const first = await firstPass(description, mode, model);
-
-  const top = first[0]?.confidence ?? 0;
-  const needsGrounding = first.length === 0 || top < CONFIDENCE_FLOOR;
-
-  // Recommendations do not need grounding, only identification does.
-  if (mode === "identify" && needsGrounding) {
-    try {
-      const grounded = await groundedPass(description, mode, model);
-      if (grounded.length) return { candidates: grounded, grounded: true };
-    } catch {
-      // If grounding fails, fall back to the first-pass results.
-    }
+  // Recommendations do not need the web; structured output is faster.
+  if (mode === "recommend") {
+    return { candidates: await structuredPass(description, mode), grounded: false };
   }
 
-  return { candidates: first, grounded: false };
+  // Identification always grounds: it is free and stops confident wrong guesses.
+  try {
+    const grounded = await groundedPass(description, mode);
+    if (grounded.length) return { candidates: grounded, grounded: true };
+  } catch {
+    // Fall through to the structured pass if grounding is unavailable.
+  }
+  return { candidates: await structuredPass(description, mode), grounded: false };
 }
