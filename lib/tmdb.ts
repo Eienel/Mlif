@@ -86,6 +86,26 @@ export async function getTrending(): Promise<TmdbMovie[]> {
   return (data?.results ?? []).filter((m) => m.poster_path);
 }
 
+// A larger wall of unique poster URLs for the pixel-art hero mosaic. Pulls a few
+// pages of popular titles. Empty when TMDB is not configured.
+export async function getPosterWall(count = 120): Promise<string[]> {
+  const pages = [1, 2, 3, 4, 5, 6];
+  const batches = await Promise.all(
+    pages.map((p) => tmdbGet<{ results: TmdbMovie[] }>("/movie/popular", { page: String(p) })),
+  );
+  const seen = new Set<number>();
+  const urls: string[] = [];
+  for (const data of batches) {
+    for (const m of data?.results ?? []) {
+      if (!m.poster_path || seen.has(m.id)) continue;
+      seen.add(m.id);
+      const u = posterUrl(m.poster_path, "w185");
+      if (u) urls.push(u);
+    }
+  }
+  return urls.slice(0, count);
+}
+
 export interface TmdbProviderEntry {
   provider_id: number;
   provider_name: string;
@@ -118,9 +138,9 @@ export function posterUrl(path: string | null | undefined, size = "w500"): strin
   return `${TMDB_IMAGE_BASE}/${size}${path}`;
 }
 
-export function logoUrl(path: string | null | undefined): string | null {
+export function logoUrl(path: string | null | undefined, size = "w92"): string | null {
   if (!path) return null;
-  return `${TMDB_IMAGE_BASE}/original${path}`;
+  return `${TMDB_IMAGE_BASE}/${size}${path}`;
 }
 
 export function yearFrom(releaseDate?: string): number | null {

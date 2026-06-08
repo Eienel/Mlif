@@ -13,13 +13,13 @@ export function ResultCard({ result }: { result: IdentifiedTitle }) {
 
   return (
     <article className="overflow-hidden rounded-card border border-hairline bg-surface shadow-warm">
-      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:p-6">
+      <div className="flex gap-4 p-4 sm:gap-5 sm:p-5">
         <Link
           href={`/title/${result.tmdbId}`}
-          className="relative aspect-[2/3] w-28 shrink-0 overflow-hidden rounded-input bg-surface-2 sm:w-36"
+          className="relative aspect-[2/3] w-20 shrink-0 self-start overflow-hidden rounded-input bg-surface-2 sm:w-24"
         >
           {poster ? (
-            <Image src={poster} alt={`${result.title} poster`} fill className="object-cover" sizes="144px" />
+            <Image src={poster} alt={`${result.title} poster`} fill className="object-cover" sizes="96px" />
           ) : (
             <div className="flex h-full items-center justify-center px-2 text-center text-xs text-muted">
               No poster
