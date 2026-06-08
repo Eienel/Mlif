@@ -12,7 +12,7 @@ Pluto TV, Freevee, and Crackle. It never links to piracy.
 - Next.js 14 App Router, TypeScript, React Server Components
 - Tailwind v4 (`@tailwindcss/postcss`)
 - Supabase: Postgres + Auth (email magic link + Google), RLS
-- Anthropic API for the reasoning layer (server only)
+- Gemini API for the reasoning layer (server only, free tier)
 - TMDB and Watchmode for catalog and where-to-watch data
 - Motion for restrained spring animation
 - Billing: Lemon Squeezy (worldwide card and PayPal) plus Coinbase Commerce (USDC)
@@ -20,10 +20,10 @@ Pluto TV, Freevee, and Crackle. It never links to piracy.
 ## How identification works
 
 1. The description is sent to `/api/identify` (server only, key never reaches the client).
-2. Anthropic returns up to 6 ranked candidates as strict JSON, each with a title,
+2. Gemini returns up to 6 ranked candidates as strict JSON, each with a title,
    year, confidence, and a one-sentence reason.
-3. If confidence is low or there are no candidates, a confidence-gated web grounding
-   pass runs (Anthropic's built-in web search) to confirm the film exists. Grounding
+3. If confidence is low or there are no candidates, a confidence-gated grounding
+   pass runs (Gemini's built-in Google Search) to confirm the film exists. Grounding
    only names films, it never sources watch links.
 4. Each candidate is resolved against TMDB for the real id, poster, and overview.
 5. For the top candidates, TMDB providers are fused with Watchmode sources to build

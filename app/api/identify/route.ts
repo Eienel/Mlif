@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runIdentify } from "@/lib/anthropic";
+import { runIdentify } from "@/lib/gemini";
 import { resolveByTitle, posterUrl, yearFrom } from "@/lib/tmdb";
 import { getWatchData } from "@/lib/watch";
 import { createClient } from "@/lib/supabase/server";

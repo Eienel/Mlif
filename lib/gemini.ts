@@ -1,18 +1,19 @@
-// The reasoning layer. Server only. Anthropic identifies films from vague
-// descriptions and returns strict JSON. Web grounding is a confidence-gated
-// fallback, never the default path.
+// The reasoning layer. Server only. Gemini identifies films from vague
+// descriptions and returns strict JSON. Google Search grounding is a
+// confidence-gated fallback, never the default path.
+//
+// We call the REST API directly with fetch, so there is no extra SDK.
 
-import Anthropic from "@anthropic-ai/sdk";
 import type { IdentifyMode, LlmCandidate } from "@/lib/types";
 
-// Quality default for identification. The free tier can run the faster model.
-export const MODEL_PRO = "claude-sonnet-4-6";
-export const MODEL_FREE = "claude-haiku-4-5-20251001";
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-let client: Anthropic | null = null;
-function anthropic(): Anthropic {
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return client;
+// Both models have a free tier. Pro uses the stronger one for sharper ranking.
+export const MODEL_FREE = "gemini-2.0-flash";
+export const MODEL_PRO = "gemini-2.5-flash";
+
+function apiKey(): string {
+  return process.env.GEMINI_API_KEY ?? "";
 }
 
 function systemPrompt(mode: IdentifyMode): string {
@@ -27,6 +28,21 @@ Return ONLY a JSON array, no prose, no code fences.
 Each item: { "title": string, "year": number, "confidence": number, "reasoning": string }.
 Max 6 items, best match first. confidence is 0 to 1. reasoning is one short sentence on why it fits.`;
 }
+
+// Response schema for the first pass, so Gemini returns clean structured JSON.
+const RESPONSE_SCHEMA = {
+  type: "ARRAY",
+  items: {
+    type: "OBJECT",
+    properties: {
+      title: { type: "STRING" },
+      year: { type: "INTEGER" },
+      confidence: { type: "NUMBER" },
+      reasoning: { type: "STRING" },
+    },
+    required: ["title", "year", "confidence", "reasoning"],
+  },
+} as const;
 
 // Strip stray markdown fences and parse the JSON array defensively.
 function parseCandidates(text: string): LlmCandidate[] {
@@ -57,11 +73,24 @@ function parseCandidates(text: string): LlmCandidate[] {
   }
 }
 
-function textFromMessage(message: Anthropic.Message): string {
-  return message.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
+interface GeminiResponse {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+}
+
+function textFrom(json: GeminiResponse): string {
+  return (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? "")
     .join("\n");
+}
+
+async function callGemini(model: string, body: Record<string, unknown>): Promise<string> {
+  const res = await fetch(`${GEMINI_BASE}/${model}:generateContent?key=${apiKey()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}`);
+  return textFrom((await res.json()) as GeminiResponse);
 }
 
 export interface IdentifyEngineResult {
@@ -69,44 +98,48 @@ export interface IdentifyEngineResult {
   grounded: boolean;
 }
 
-// First pass: pure trained reasoning, no extra calls. Handles well-known films.
+// First pass: pure model reasoning with structured JSON, no extra calls.
 async function firstPass(
   description: string,
   mode: IdentifyMode,
   model: string,
 ): Promise<LlmCandidate[]> {
-  const message = await anthropic().messages.create({
-    model,
-    max_tokens: 1024,
-    system: systemPrompt(mode),
-    messages: [{ role: "user", content: description }],
+  const text = await callGemini(model, {
+    system_instruction: { parts: [{ text: systemPrompt(mode) }] },
+    contents: [{ role: "user", parts: [{ text: description }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      maxOutputTokens: 1024,
+      temperature: 0.4,
+    },
   });
-  return parseCandidates(textFromMessage(message));
+  return parseCandidates(text);
 }
 
-// Fallback pass: ground with Anthropic's built-in web search, then re-rank.
-// Used only to confirm the film exists, never to source watch links.
+// Fallback pass: ground with Google Search, then re-rank. Confirms the film
+// exists and gets the correct title and year. Never sources watch links.
+// Structured output is not allowed alongside tools, so we parse text defensively.
 async function groundedPass(
   description: string,
   mode: IdentifyMode,
   model: string,
 ): Promise<LlmCandidate[]> {
-  const message = await anthropic().messages.create({
-    model,
-    max_tokens: 1536,
-    system:
-      systemPrompt(mode) +
-      `\nYou may use web search to confirm the film exists and get the correct title and year. Use the search query: the user description plus the word "movie". After searching, return the JSON array only.`,
-    tools: [
-      {
-        type: "web_search_20250305",
-        name: "web_search",
-        max_uses: 3,
-      } as unknown as Anthropic.Tool,
-    ],
-    messages: [{ role: "user", content: description }],
+  const text = await callGemini(model, {
+    system_instruction: {
+      parts: [
+        {
+          text:
+            systemPrompt(mode) +
+            `\nUse Google Search to confirm the film exists, searching the user description plus the word "movie". Then return the JSON array only.`,
+        },
+      ],
+    },
+    contents: [{ role: "user", parts: [{ text: description }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { maxOutputTokens: 1536, temperature: 0.4 },
   });
-  return parseCandidates(textFromMessage(message));
+  return parseCandidates(text);
 }
 
 const CONFIDENCE_FLOOR = 0.6;

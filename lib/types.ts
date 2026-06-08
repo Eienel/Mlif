@@ -2,7 +2,7 @@
 
 export type IdentifyMode = "identify" | "recommend";
 
-// Raw candidate shape returned by the Anthropic reasoning layer.
+// Raw candidate shape returned by the Gemini reasoning layer.
 export interface LlmCandidate {
   title: string;
   year: number;
