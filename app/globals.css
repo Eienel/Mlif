@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+  Premise brand tokens. One accent, one corner-radius scale, warm light theme.
+  No purple, no gradients, no slanted type. Shadows tinted warm.
+*/
+@theme {
+  --color-accent: #d65a31;
+  --color-accent-strong: #bd4a25;
+  --color-bg: #f6f3ed;
+  --color-surface: #ffffff;
+  --color-surface-2: #efe9df;
+  --color-ink: #1c1812;
+  --color-muted: #786e61;
+  --color-hairline: rgba(28, 24, 18, 0.1);
+
+  --font-display:
+    ui-serif, "New York", var(--font-display-fallback), "Fraunces", Georgia,
+    serif;
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    var(--font-geist-sans), "Geist", system-ui, sans-serif;
+
+  --radius-card: 16px;
+  --radius-input: 10px;
+
+  --shadow-warm: 0 1px 2px rgba(74, 52, 32, 0.08), 0 8px 24px rgba(74, 52, 32, 0.1);
+  --shadow-warm-lg: 0 2px 4px rgba(74, 52, 32, 0.1), 0 20px 48px rgba(74, 52, 32, 0.14);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-ui);
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-style: normal;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #fff;
+  }
+
+  /* Visible, accent focus ring for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .rounded-card {
+    border-radius: var(--radius-card);
+  }
+  .rounded-input {
+    border-radius: var(--radius-input);
+  }
+  .shadow-warm {
+    box-shadow: var(--shadow-warm);
+  }
+  .shadow-warm-lg {
+    box-shadow: var(--shadow-warm-lg);
+  }
+  .hairline {
+    border-color: var(--color-hairline);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
