@@ -12,9 +12,20 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 // The free model. Fast, on the free tier, and plenty good for identification.
 export const MODEL = "gemini-2.5-flash-lite";
 
-function apiKey(): string {
-  return process.env.GEMINI_API_KEY ?? "";
+// Support multiple free keys (different Google projects) to multiply the daily
+// quota. Set GEMINI_API_KEY plus GEMINI_API_KEY_2/_3, or a comma-separated
+// GEMINI_API_KEYS. We round-robin across them and fall back on rate limits.
+function apiKeys(): string[] {
+  const raw = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    ...(process.env.GEMINI_API_KEYS?.split(",") ?? []),
+  ];
+  return [...new Set(raw.map((k) => (k ?? "").trim()).filter(Boolean))];
 }
+
+let rrIndex = 0;
 
 const SHAPE = `Each item: { "title": string, "year": number, "type": "movie" | "tv", "confidence": number, "reasoning": string }.
 "type" is "tv" for a television series and "movie" for a film. Max 6 items, best match first. confidence is 0 to 1. reasoning is one short sentence.`;
@@ -87,13 +98,25 @@ function textFrom(json: GeminiResponse): string {
 }
 
 async function callGemini(model: string, body: Record<string, unknown>): Promise<string> {
-  const res = await fetch(`${GEMINI_BASE}/${model}:generateContent?key=${apiKey()}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  return textFrom((await res.json()) as GeminiResponse);
+  const keys = apiKeys();
+  if (keys.length === 0) throw new Error("Gemini 401: no API key configured");
+
+  // Round-robin the starting key to spread load, then fall through to the next
+  // key only when one is rate-limited (429).
+  const start = rrIndex++ % keys.length;
+  let lastStatus = 0;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[(start + i) % keys.length];
+    const res = await fetch(`${GEMINI_BASE}/${model}:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return textFrom((await res.json()) as GeminiResponse);
+    lastStatus = res.status;
+    if (res.status !== 429) break; // non-quota error: stop trying other keys
+  }
+  throw new Error(`Gemini ${lastStatus}`);
 }
 
 export interface IdentifyEngineResult {
