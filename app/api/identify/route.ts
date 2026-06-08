@@ -106,6 +106,14 @@ export async function POST(req: Request) {
     return NextResponse.json(payload);
   } catch (err) {
     console.error("identify failed", err);
+    // Surface free-tier rate limits as a calm "busy" message, not a hard error.
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("429")) {
+      return NextResponse.json(
+        { error: "Premise is busy right now (free AI limit). Give it a few seconds and try again." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { error: "Something went wrong identifying that film. Try rephrasing." },
       { status: 500 },

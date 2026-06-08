@@ -138,6 +138,10 @@ async function groundedPass(description: string, mode: IdentifyMode): Promise<Ll
   return parseCandidates(text);
 }
 
+// Ground only when the plain result is weak. Google Search grounding has a much
+// smaller free quota than plain generation, so we spend it sparingly.
+const CONFIDENCE_FLOOR = 0.7;
+
 export async function runIdentify(
   description: string,
   mode: IdentifyMode,
@@ -147,12 +151,17 @@ export async function runIdentify(
     return { candidates: await structuredPass(description, mode), grounded: false };
   }
 
-  // Identification always grounds: it is free and stops confident wrong guesses.
-  try {
-    const grounded = await groundedPass(description, mode);
-    if (grounded.length) return { candidates: grounded, grounded: true };
-  } catch {
-    // Fall through to the structured pass if grounding is unavailable.
+  const first = await structuredPass(description, mode);
+  const top = first[0]?.confidence ?? 0;
+
+  // Only reach for web grounding when the model is unsure or empty-handed.
+  if (first.length === 0 || top < CONFIDENCE_FLOOR) {
+    try {
+      const grounded = await groundedPass(description, mode);
+      if (grounded.length) return { candidates: grounded, grounded: true };
+    } catch {
+      // Grounding unavailable (e.g. rate-limited); keep the structured result.
+    }
   }
-  return { candidates: await structuredPass(description, mode), grounded: false };
+  return { candidates: first, grounded: false };
 }
