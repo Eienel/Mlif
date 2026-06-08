@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isProActive } from "@/lib/plan";
 
 export const runtime = "nodejs";
 
-// The watchlist is a Pro feature. We gate on profiles.plan server-side.
+// The watchlist is a Pro feature. We gate on active Pro access server-side.
 async function requirePro() {
   const supabase = createClient();
   const {
@@ -13,11 +14,11 @@ async function requirePro() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan")
+    .select("plan, plan_expires_at")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profile?.plan !== "pro") {
+  if (!isProActive(profile)) {
     return { error: NextResponse.json({ error: "Watchlist is a Pro feature." }, { status: 402 }) };
   }
   return { supabase, user };

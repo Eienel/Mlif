@@ -6,11 +6,20 @@ create table if not exists profiles (
   id uuid primary key references auth.users on delete cascade,
   email text,
   plan text not null default 'free',          -- 'free' | 'pro'
-  stripe_customer_id text,
+  plan_source text,                            -- 'card' | 'crypto' | null
+  plan_expires_at timestamptz,                 -- set for crypto passes, null for card subs
+  ls_customer_id text,                         -- Lemon Squeezy customer id (card)
+  ls_subscription_id text,                     -- Lemon Squeezy subscription id (card)
   daily_searches int not null default 0,
   daily_reset_at date not null default current_date,
   created_at timestamptz default now()
 );
+
+-- If the table already exists from an earlier version, add the billing columns.
+alter table profiles add column if not exists plan_source text;
+alter table profiles add column if not exists plan_expires_at timestamptz;
+alter table profiles add column if not exists ls_customer_id text;
+alter table profiles add column if not exists ls_subscription_id text;
 
 -- watchlist: saved titles per user
 create table if not exists watchlist (

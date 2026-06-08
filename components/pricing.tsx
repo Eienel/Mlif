@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "@phosphor-icons/react";
+import { Check, CreditCard, CurrencyDollarSimple } from "@phosphor-icons/react";
 import { FREE_DAILY_LIMIT } from "@/lib/usage";
 
-// Clean monthly price. Editable in one place.
-const PRO_PRICE = 5;
+// Clean monthly price. Editable in one place; mirror it in NEXT_PUBLIC_PRO_PRICE.
+const PRO_PRICE = process.env.NEXT_PUBLIC_PRO_PRICE ?? "5";
 
 const FREE_FEATURES = [
   `${FREE_DAILY_LIMIT} identifications a day`,
@@ -20,21 +20,24 @@ const PRO_FEATURES = [
   "Faster, higher-quality model",
 ];
 
-export function Pricing() {
-  const [pending, setPending] = useState(false);
+type Rail = "card" | "crypto";
 
-  async function upgrade() {
-    setPending(true);
+export function Pricing() {
+  const [pending, setPending] = useState<Rail | null>(null);
+
+  async function start(rail: Rail) {
+    setPending(rail);
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const endpoint = rail === "card" ? "/api/billing/checkout" : "/api/billing/crypto";
+      const res = await fetch(endpoint, { method: "POST" });
       if (res.status === 401) {
         window.location.href = "/login?next=/account";
         return;
       }
-      const data = (await res.json()) as { url?: string; error?: string };
+      const data = (await res.json()) as { url?: string };
       if (data.url) window.location.href = data.url;
     } finally {
-      setPending(false);
+      setPending(null);
     }
   }
 
@@ -44,7 +47,7 @@ export function Pricing() {
         Simple pricing.
       </h2>
       <p className="mt-2 max-w-md text-muted">
-        Try it free. Go Pro when you want unlimited finds and a watchlist.
+        Try it free. Go Pro by card from anywhere, or pay with USDC.
       </p>
 
       <div className="mt-10 grid gap-5 md:grid-cols-2">
@@ -80,14 +83,30 @@ export function Pricing() {
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            onClick={upgrade}
-            disabled={pending}
-            className="mt-8 w-full rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            {pending ? "Opening checkout..." : "Go Pro"}
-          </button>
+
+          <div className="mt-8 space-y-2.5">
+            <button
+              type="button"
+              onClick={() => start("card")}
+              disabled={pending !== null}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              <CreditCard size={18} />
+              {pending === "card" ? "Opening checkout..." : "Pay with card"}
+            </button>
+            <button
+              type="button"
+              onClick={() => start("crypto")}
+              disabled={pending !== null}
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-hairline bg-surface px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-accent disabled:opacity-60"
+            >
+              <CurrencyDollarSimple size={18} />
+              {pending === "crypto" ? "Opening..." : "Pay with USDC"}
+            </button>
+            <p className="pt-1 text-center text-xs text-muted">
+              Card billing recurs monthly. USDC buys a 30-day pass.
+            </p>
+          </div>
         </div>
       </div>
     </section>

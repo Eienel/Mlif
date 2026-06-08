@@ -5,24 +5,24 @@ import { BookmarkSimple } from "@phosphor-icons/react/dist/ssr";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { WatchlistItem } from "@/components/watchlist-item";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getOptionalUser } from "@/lib/supabase/server";
+import { isProActive } from "@/lib/plan";
 
 export const metadata: Metadata = { title: "Watchlist" };
+export const dynamic = "force-dynamic";
 
 export default async function WatchlistPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getOptionalUser();
   if (!user) redirect("/login?next=/watchlist");
+  const supabase = createClient();
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan")
+    .select("plan, plan_expires_at")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isPro = profile?.plan === "pro";
+  const isPro = isProActive(profile);
 
   const { data: items } = isPro
     ? await supabase

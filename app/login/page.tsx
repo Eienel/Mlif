@@ -3,15 +3,13 @@ import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { LoginForm } from "@/components/login-form";
-import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Sign in" };
+export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getOptionalUser();
   const next = searchParams.next ?? "/account";
   if (user) redirect(next);
 

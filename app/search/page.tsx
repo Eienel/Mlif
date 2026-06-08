@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SearchExperience } from "@/components/search-experience";
-import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/supabase/server";
 import type { IdentifyMode } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -14,10 +14,7 @@ export default async function SearchPage({
 }: {
   searchParams: { q?: string; mode?: string };
 }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getOptionalUser();
 
   const initialQuery = searchParams.q ?? "";
   const initialMode: IdentifyMode = searchParams.mode === "recommend" ? "recommend" : "identify";

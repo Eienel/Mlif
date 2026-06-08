@@ -1,13 +1,10 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
-import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/supabase/server";
 
 // Top nav, one line at desktop. Auth-aware: shows account links when signed in.
 export async function SiteHeader() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getOptionalUser();
 
   return (
     <header className="sticky top-0 z-40 border-b border-hairline bg-bg/80 backdrop-blur-md">

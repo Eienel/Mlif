@@ -2,6 +2,7 @@
 // Per-user counter for signed-in users, per-IP for anonymous visitors.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isProActive } from "@/lib/plan";
 
 export const FREE_DAILY_LIMIT = 5;
 
@@ -22,14 +23,15 @@ export async function consumeForUser(userId: string): Promise<UsageState> {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan, daily_searches, daily_reset_at")
+    .select("plan, plan_expires_at, daily_searches, daily_reset_at")
     .eq("id", userId)
     .maybeSingle();
 
-  const plan = (profile?.plan as "free" | "pro") ?? "free";
-  if (plan === "pro") {
-    return { plan, used: 0, limit: Infinity, allowed: true };
+  // Pro is unlimited, whether it came from a card subscription or a crypto pass.
+  if (isProActive(profile)) {
+    return { plan: "pro", used: 0, limit: Infinity, allowed: true };
   }
+  const plan = "free" as const;
 
   // Reset the counter if the stored reset date is not today.
   let used = profile?.daily_searches ?? 0;

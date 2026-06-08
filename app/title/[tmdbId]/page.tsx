@@ -9,7 +9,7 @@ import { SaveButton } from "@/components/save-button";
 import { getMovieDetail, getSimilar, posterUrl, yearFrom, TMDB_IMAGE_BASE } from "@/lib/tmdb";
 import { getWatchData } from "@/lib/watch";
 import { isSupportedCountry, DEFAULT_COUNTRY, COUNTRIES } from "@/lib/countries";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getOptionalUser } from "@/lib/supabase/server";
 
 interface PageProps {
   params: { tmdbId: string };
@@ -36,13 +36,10 @@ export default async function TitlePage({ params, searchParams }: PageProps) {
   const watch = await getWatchData(tmdbId, country);
 
   // Auth + saved state for the SaveButton.
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getOptionalUser();
   let initialSaved = false;
   if (user) {
-    const { data } = await supabase
+    const { data } = await createClient()
       .from("watchlist")
       .select("tmdb_id")
       .eq("user_id", user.id)
