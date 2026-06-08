@@ -11,11 +11,10 @@ Pluto TV, Freevee, and Crackle. It never links to piracy.
 
 - Next.js 14 App Router, TypeScript, React Server Components
 - Tailwind v4 (`@tailwindcss/postcss`)
-- Supabase: Postgres + Auth (email magic link + Google), RLS
 - Gemini API for the reasoning layer (server only, free tier)
 - TMDB and Watchmode for catalog and where-to-watch data
 - Motion for restrained spring animation
-- Billing: Lemon Squeezy (worldwide card and PayPal) plus Coinbase Commerce (USDC)
+- Supabase (optional): server-side provider cache and per-IP fair-use counter
 
 ## How identification works
 
@@ -29,19 +28,12 @@ Pluto TV, Freevee, and Crackle. It never links to piracy.
 5. For the top candidates, TMDB providers are fused with Watchmode sources to build
    the where-to-watch rows, cached per `(tmdb_id, country)` in Supabase for 24h.
 
-## Billing
+## Free, no signup
 
-Stripe does not onboard merchants in every country, so Premise uses two rails so
-the merchant can collect from users worldwide:
-
-- **Lemon Squeezy** for card and PayPal, with real recurring monthly subscriptions.
-  As a merchant of record it handles global tax and pays out internationally.
-- **Coinbase Commerce** for USDC and other crypto. Crypto cannot auto-recur, so a
-  payment grants a 30-day Pro pass that the user renews manually.
-
-Both unlock the same Pro features. Gating is enforced server-side via `isProActive`,
-which treats a card subscription as active until cancelled and a crypto pass as
-active until its expiry.
+Premise is completely free with no accounts, in line with TMDB's non-commercial
+API terms. The watchlist lives in the browser (localStorage), so saving is instant
+and needs no login. A generous per-IP daily fair-use cap protects the shared free
+API quotas; it is enforced server-side and is not a paywall.
 
 ## Local setup
 
@@ -51,17 +43,16 @@ cp .env.example .env.local   # fill in the keys you have
 npm run dev
 ```
 
-The app degrades gracefully: without Supabase keys it renders logged-out, without
-billing keys the upgrade buttons return a clear "not configured" error, and without
-TMDB the hero falls back to a static panel.
+You only need `GEMINI_API_KEY` and `TMDB_API_KEY` to run the core experience.
+Watchmode adds the free ad-supported sources. Supabase is optional: without it the
+provider cache and rate-limit simply no-op, and without TMDB the hero falls back to
+a static panel.
 
-## Database
+## Database (optional)
 
-Run `supabase/schema.sql` in the Supabase SQL editor. It creates `profiles`,
-`watchlist`, `provider_cache`, `anon_usage`, and the phase-2 `title_embeddings`
-table, turns on Row Level Security, and adds a trigger that creates a profile row
-on sign-up. Users can read and write only their own rows; `provider_cache` and
-`anon_usage` are service-role only.
+Run `supabase/schema.sql` in the Supabase SQL editor if you want the server-side
+provider cache and per-IP fair-use counter. It creates `provider_cache`,
+`anon_usage`, and the phase-2 `title_embeddings` table, all service-role only.
 
 ## Environment variables
 
@@ -71,9 +62,6 @@ be exposed to the client.
 ## Deploy (Vercel)
 
 1. Import the repo, framework preset Next.js.
-2. Add every variable from `.env.example` for Production and Preview.
+2. Add the variables from `.env.example` for Production and Preview.
 3. Set `NEXT_PUBLIC_SITE_URL` to the deployment URL.
-4. Point the Lemon Squeezy webhook at `/api/webhooks/lemonsqueezy` and the Coinbase
-   Commerce webhook at `/api/webhooks/coinbase`, then copy each signing secret in.
-5. Add the deployment URL to Supabase auth redirect URLs.
-6. Verify identify, watch links, auth, and a test payment in Preview before promoting.
+4. Verify identify and watch links in Preview before promoting.

@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",
-    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "geist": "^1.7.2",
     "motion": "^11.11.17",

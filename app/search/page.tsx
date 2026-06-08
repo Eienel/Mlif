@@ -2,20 +2,17 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SearchExperience } from "@/components/search-experience";
-import { getOptionalUser } from "@/lib/supabase/server";
 import type { IdentifyMode } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Find a film",
 };
 
-export default async function SearchPage({
+export default function SearchPage({
   searchParams,
 }: {
   searchParams: { q?: string; mode?: string };
 }) {
-  const user = await getOptionalUser();
-
   const initialQuery = searchParams.q ?? "";
   const initialMode: IdentifyMode = searchParams.mode === "recommend" ? "recommend" : "identify";
 
@@ -30,7 +27,7 @@ export default async function SearchPage({
           A scene, a mood, a fragment of a line. We will rank the likely matches.
         </p>
         <div className="mt-7">
-          <SearchExperience authed={Boolean(user)} initialQuery={initialQuery} initialMode={initialMode} />
+          <SearchExperience initialQuery={initialQuery} initialMode={initialMode} />
         </div>
       </main>
       <SiteFooter />

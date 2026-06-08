@@ -8,7 +8,7 @@ import { SaveButton } from "@/components/save-button";
 
 // A single ranked result: poster, title, year, one-line reasoning, confidence,
 // and the where-to-watch rows.
-export function ResultCard({ result, authed }: { result: IdentifiedTitle; authed: boolean }) {
+export function ResultCard({ result }: { result: IdentifiedTitle }) {
   const poster = posterUrl(result.posterPath, "w342");
 
   return (
@@ -60,7 +60,6 @@ export function ResultCard({ result, authed }: { result: IdentifiedTitle; authed
               tmdbId={result.tmdbId}
               title={result.title}
               posterPath={result.posterPath}
-              authed={authed}
             />
           </div>
         </div>

@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
-import { getOptionalUser } from "@/lib/supabase/server";
 
-// Top nav, one line at desktop. Auth-aware: shows account links when signed in.
-export async function SiteHeader() {
-  const user = await getOptionalUser();
-
+// Top nav, one line at desktop. No accounts: the only destinations are the
+// product sections and the local watchlist.
+export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-hairline bg-bg/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
@@ -18,34 +16,17 @@ export async function SiteHeader() {
             How it works
           </Link>
           <Link
-            href="/#pricing"
-            className="hidden rounded-input px-3 py-2 transition-colors hover:text-ink sm:block"
+            href="/watchlist"
+            className="rounded-input px-3 py-2 transition-colors hover:text-ink"
           >
-            Pricing
+            Watchlist
           </Link>
-          {user ? (
-            <>
-              <Link
-                href="/watchlist"
-                className="rounded-input px-3 py-2 transition-colors hover:text-ink"
-              >
-                Watchlist
-              </Link>
-              <Link
-                href="/account"
-                className="rounded-full bg-ink px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
-              >
-                Account
-              </Link>
-            </>
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-full bg-ink px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
-            >
-              Sign in
-            </Link>
-          )}
+          <Link
+            href="/search"
+            className="rounded-full bg-ink px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Find a film
+          </Link>
         </nav>
       </div>
     </header>

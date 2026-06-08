@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { runIdentify } from "@/lib/gemini";
 import { resolveByTitle, posterUrl, yearFrom } from "@/lib/tmdb";
 import { getWatchData } from "@/lib/watch";
-import { createClient } from "@/lib/supabase/server";
-import { consumeForUser, consumeForAnon } from "@/lib/usage";
+import { consumeForAnon } from "@/lib/usage";
 import type {
   IdentifiedTitle,
   IdentifyMode,
@@ -76,38 +75,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "That description is too long." }, { status: 400 });
   }
 
-  // Plan gating and the daily free limit, enforced server-side.
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let isPro = false;
-  if (user) {
-    const usage = await consumeForUser(user.id);
-    isPro = usage.plan === "pro";
-    if (!usage.allowed) {
-      return NextResponse.json(
-        { error: "You have reached today's free limit. Upgrade to Pro for unlimited.", limitReached: true },
-        { status: 429 },
-      );
-    }
-  } else {
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "anon";
-    const usage = await consumeForAnon(ip);
-    if (!usage.allowed) {
-      return NextResponse.json(
-        { error: "You have reached today's free limit. Sign up and upgrade for unlimited.", limitReached: true },
-        { status: 429 },
-      );
-    }
+  // Fair-use daily cap, enforced server-side per IP. Not a paywall, just quota
+  // safety so one visitor cannot exhaust the shared free API limits.
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "anon";
+  const usage = await consumeForAnon(ip);
+  if (!usage.allowed) {
+    return NextResponse.json(
+      { error: "You have hit today's fair-use limit. Check back tomorrow.", limitReached: true },
+      { status: 429 },
+    );
   }
 
   try {
-    const engine = await runIdentify(query, mode, isPro);
+    const engine = await runIdentify(query, mode);
     const results = await resolve(engine.candidates, country);
 
     const payload: IdentifyResponse = {

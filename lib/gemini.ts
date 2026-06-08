@@ -8,9 +8,8 @@ import type { IdentifyMode, LlmCandidate } from "@/lib/types";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// Both models have a free tier. Pro uses the stronger one for sharper ranking.
-export const MODEL_FREE = "gemini-2.0-flash";
-export const MODEL_PRO = "gemini-2.5-flash";
+// The free model. Fast, on the free tier, and plenty good for film identification.
+export const MODEL = "gemini-2.5-flash-lite";
 
 function apiKey(): string {
   return process.env.GEMINI_API_KEY ?? "";
@@ -147,9 +146,8 @@ const CONFIDENCE_FLOOR = 0.6;
 export async function runIdentify(
   description: string,
   mode: IdentifyMode,
-  isPro: boolean,
 ): Promise<IdentifyEngineResult> {
-  const model = isPro ? MODEL_PRO : MODEL_FREE;
+  const model = MODEL;
   const first = await firstPass(description, mode, model);
 
   const top = first[0]?.confidence ?? 0;

@@ -23,11 +23,6 @@ export function SiteFooter() {
                   </a>
                 </li>
                 <li>
-                  <a href="/#pricing" className="transition-colors hover:text-ink">
-                    Pricing
-                  </a>
-                </li>
-                <li>
                   <a href="/watchlist" className="transition-colors hover:text-ink">
                     Watchlist
                   </a>

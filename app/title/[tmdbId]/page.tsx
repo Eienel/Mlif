@@ -9,7 +9,6 @@ import { SaveButton } from "@/components/save-button";
 import { getMovieDetail, getSimilar, posterUrl, yearFrom, TMDB_IMAGE_BASE } from "@/lib/tmdb";
 import { getWatchData } from "@/lib/watch";
 import { isSupportedCountry, DEFAULT_COUNTRY, COUNTRIES } from "@/lib/countries";
-import { createClient, getOptionalUser } from "@/lib/supabase/server";
 
 interface PageProps {
   params: { tmdbId: string };
@@ -34,19 +33,6 @@ export default async function TitlePage({ params, searchParams }: PageProps) {
   if (!movie) notFound();
 
   const watch = await getWatchData(tmdbId, country);
-
-  // Auth + saved state for the SaveButton.
-  const user = await getOptionalUser();
-  let initialSaved = false;
-  if (user) {
-    const { data } = await createClient()
-      .from("watchlist")
-      .select("tmdb_id")
-      .eq("user_id", user.id)
-      .eq("tmdb_id", tmdbId)
-      .maybeSingle();
-    initialSaved = Boolean(data);
-  }
 
   const poster = posterUrl(movie.poster_path, "w500");
   const backdrop = movie.backdrop_path ? `${TMDB_IMAGE_BASE}/w1280${movie.backdrop_path}` : null;
@@ -92,8 +78,6 @@ export default async function TitlePage({ params, searchParams }: PageProps) {
                 tmdbId={tmdbId}
                 title={movie.title}
                 posterPath={movie.poster_path ?? null}
-                authed={Boolean(user)}
-                initialSaved={initialSaved}
               />
             </div>
           </div>

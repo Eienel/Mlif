@@ -11,12 +11,11 @@ import { ResultSkeleton } from "@/components/result-skeleton";
 type Status = "idle" | "loading" | "done" | "error";
 
 interface SearchExperienceProps {
-  authed: boolean;
   initialQuery?: string;
   initialMode?: IdentifyMode;
 }
 
-export function SearchExperience({ authed, initialQuery = "", initialMode = "identify" }: SearchExperienceProps) {
+export function SearchExperience({ initialQuery = "", initialMode = "identify" }: SearchExperienceProps) {
   const [query, setQuery] = useState(initialQuery);
   const [mode, setMode] = useState<IdentifyMode>(initialMode);
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
@@ -24,7 +23,6 @@ export function SearchExperience({ authed, initialQuery = "", initialMode = "ide
   const [results, setResults] = useState<IdentifiedTitle[]>([]);
   const [grounded, setGrounded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
   const ranInitial = useRef(false);
 
   const run = useCallback(
@@ -33,18 +31,16 @@ export function SearchExperience({ authed, initialQuery = "", initialMode = "ide
       if (!trimmed) return;
       setStatus("loading");
       setError(null);
-      setLimitReached(false);
       try {
         const res = await fetch("/api/identify", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ query: trimmed, mode: m, country: cc }),
         });
-        const data = (await res.json()) as IdentifyResponse & { error?: string; limitReached?: boolean };
+        const data = (await res.json()) as IdentifyResponse & { error?: string };
         if (!res.ok) {
           setStatus("error");
           setError(data.error ?? "Something went wrong.");
-          setLimitReached(Boolean(data.limitReached));
           return;
         }
         setResults(data.results ?? []);
@@ -157,14 +153,6 @@ export function SearchExperience({ authed, initialQuery = "", initialMode = "ide
           <div className="rounded-card border border-hairline bg-surface p-8 text-center shadow-warm">
             <Warning size={28} className="mx-auto text-accent" />
             <p className="mt-3 text-ink">{error}</p>
-            {limitReached ? (
-              <a
-                href="/#pricing"
-                className="mt-4 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white"
-              >
-                See Pro
-              </a>
-            ) : null}
           </div>
         ) : null}
 
@@ -190,7 +178,7 @@ export function SearchExperience({ authed, initialQuery = "", initialMode = "ide
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 220, damping: 26, delay: i * 0.05 }}
               >
-                <ResultCard result={r} authed={authed} />
+                <ResultCard result={r} />
               </motion.div>
             ))}
           </div>

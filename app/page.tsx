@@ -7,7 +7,6 @@ import { HeroSearch } from "@/components/hero-search";
 import { ExampleQueries } from "@/components/example-queries";
 import { PosterMosaic } from "@/components/poster-mosaic";
 import { Reveal } from "@/components/reveal";
-import { Pricing } from "@/components/pricing";
 
 export default function LandingPage() {
   return (
@@ -34,7 +33,7 @@ export default function LandingPage() {
             <HeroSearch />
           </div>
           <p className="mt-3 text-sm text-muted">
-            No account needed to try. Five free finds a day.
+            No account needed. Completely free.
           </p>
         </div>
 
@@ -133,7 +132,26 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
-      <Pricing />
+      {/* Closing note. Premise is free, no tiers, no paywall. */}
+      <section className="mx-auto max-w-6xl px-5 py-20">
+        <Reveal>
+          <div className="rounded-card border-2 border-accent bg-surface p-8 text-center shadow-warm-lg sm:p-12">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+              Free, with no catch.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">
+              No tiers, no paywall, no card. Describe a film and find where to watch
+              it, every time.
+            </p>
+            <Link
+              href="/search"
+              className="mt-6 inline-flex rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Find a film
+            </Link>
+          </div>
+        </Reveal>
+      </section>
 
       <SiteFooter />
     </div>
