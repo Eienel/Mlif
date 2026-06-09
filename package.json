@@ -12,6 +12,7 @@
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/analytics": "^2.0.1",
     "geist": "^1.7.2",
     "motion": "^11.11.17",
     "next": "^14.2.35",
